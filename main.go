@@ -1,60 +1,89 @@
 package main
 
 import (
+	"encoding/csv"
+	"io"
+	"io/ioutil"
 	"math/rand"
-	"time"
+	"os"
+	"strconv"
 
+	"github.com/H37kouya/grover-prot/helpers"
+	"github.com/golang/freetype/truetype"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
-	"gonum.org/v1/plot/plotutil"
 	"gonum.org/v1/plot/vg"
 )
 
 func init() {
 	rand.Seed(int64(0))
+	//import japanese fonts
+	b, err := ioutil.ReadFile(`C:\WINDOWS\FONTS\BIZ-UDGOTHICR.TTC`)
+	if err != nil {
+		panic(err)
+	}
+	ft, err := truetype.Parse(b)
+	if err != nil {
+		panic(err)
+	}
+	fontName := "BIZ-UDGOTHICR"
+	vg.AddFont(fontName, ft)
+
+	//default font
+	plot.DefaultFont = fontName
+	plotter.DefaultFont = fontName
 }
 
 func main() {
+	// csv読み込み
+	f, err := os.Open("inputs/target.csv")
+	if err != nil {
+		panic(err)
+	}
 
+	r := csv.NewReader(f)
+	var labelX []string
+	dataY := plotter.Values{}
+
+	for i := 0; i < 200; i++ {
+		record, err := r.Read()
+		if i == 0 {
+			i++
+			continue
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+		labelX = append(labelX, record[0])
+		floatVal, err := strconv.ParseFloat(record[5], 64)
+		if err != nil {
+			panic(err)
+		}
+		dataY = append(dataY, floatVal)
+	}
+
+	// グラフのプロット
 	p, err := plot.New()
 	if err != nil {
 		panic(err)
 	}
 
-	p.Title.Text = "Plotutil example"
-	p.X.Label.Text = "X"
-	p.Y.Label.Text = "Y"
-
-	err = plotutil.AddLinePoints(p,
-		"First", randomPoints(15),
-		"Second", randomPoints(15),
-		"Third", randomPoints(15))
+	bar, err := plotter.NewBarChart(dataY, vg.Points(20))
 	if err != nil {
 		panic(err)
 	}
 
+	p.Title.Text = "Grover Alcoholism"
+	p.X.Label.Text = "回数"
+	p.Y.Label.Text = "出力値"
+	p.Add(bar)
+
 	// Save the plot to a PNG file.
-	if err := p.Save(4*vg.Inch, 4*vg.Inch, "outputs/"+getTimeForFilename()+".png"); err != nil {
+	timeForFilename := helpers.GetTimeForFilename()
+	if err := p.Save(12*vg.Inch, 12*vg.Inch, "outputs/"+timeForFilename+".png"); err != nil {
 		panic(err)
 	}
-}
-
-func getTimeForFilename() string {
-	t := time.Now()
-	layout := "2006-01-02_15.04.05"
-	return t.Format(layout)
-}
-
-// randomPoints returns some random x, y points.
-func randomPoints(n int) plotter.XYs {
-	pts := make(plotter.XYs, n)
-	for i := range pts {
-		if i == 0 {
-			pts[i].X = rand.Float64()
-		} else {
-			pts[i].X = pts[i-1].X + rand.Float64()
-		}
-		pts[i].Y = pts[i].X + 10*rand.Float64()
-	}
-	return pts
 }
